@@ -1,6 +1,6 @@
 from __future__ import annotations
-
 from sysmon.analysis import CpuCapacity, cpu_health_label, normalize_load, smt_status
+from sysmon.network import collect_network_rates, fmt_rate
 from sysmon.collectors import (
     collect_cpu,
     collect_disk,
@@ -30,7 +30,7 @@ def main() -> None:
     print()
 
     if cpu.loadavg_1m is not None:
-        # Normalized load as a percentage of capacity
+        # normalized load as a percentage of capacity
         norm = f"{(load_frac * 100):.0f}%" if load_frac is not None else "n/a"
         print(
             f"CPU:  {cpu.percent:.1f}%  "
@@ -49,6 +49,16 @@ def main() -> None:
         f"Disk: {disk.percent:.1f}%  used={fmt_bytes(disk.used_bytes)}  "
         f"free={fmt_bytes(disk.free_bytes)}  total={fmt_bytes(disk.total_bytes)}  ({disk.path})"
     )
+    net = collect_network_rates(sample_seconds=1.5)
+    print()
+    print(f"Net:  rx={fmt_rate(net.total_rx_bps)}  tx={fmt_rate(net.total_tx_bps)}  (sample={net.sample_seconds:.1f}s)")
+    for iface in net.ifaces[:6]:
+        up = "up" if iface.is_up else "down"
+        spd = f"{iface.speed_mbps} Mbps" if iface.speed_mbps is not None else "n/a"
+        print(f"  - {iface.name}: {up:4}  speed={spd:>8}  rx={fmt_rate(iface.rx_bps):>10}  tx={fmt_rate(iface.tx_bps):>10}  "
+              f"rx_total={iface.rx_bytes}  tx_total={iface.tx_bytes}")
+
+
 
 
 if __name__ == "__main__":
