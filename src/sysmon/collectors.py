@@ -6,6 +6,22 @@ import time
 from dataclasses import dataclass
 import psutil
 
+def safe_fqdn(hostname: str) -> str:
+    """
+    socket.getfqdn() can return reverse-DNS artifacts
+    """
+    fq = socket.getfqdn()
+    fq = (fq or "").strip().lower()
+
+    # if it looks like reverse DNS or is otherwise unhelpful, fall back
+    if not fq or fq.endswith(".ip6.arpa") or fq.endswith(".in-addr.arpa"):
+        return hostname
+
+    if "." not in fq:
+        return hostname
+
+    return socket.getfqdn()
+
 
 @dataclass(frozen=True)
 class HostOS:
@@ -22,9 +38,10 @@ class HostOS:
 
 def collect_host_os() -> HostOS:
     u = platform.uname()
+    hostname = socket.gethostname()
     return HostOS(
-        hostname=socket.gethostname(),
-        fqdn=socket.getfqdn(),
+        hostname=hostname,
+        fqdn=safe_fqdn(hostname),
         os_name=f"{u.system} {u.release}",
         os_version=platform.mac_ver()[0] or "unknown",
         kernel=u.version,
