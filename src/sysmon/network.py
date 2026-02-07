@@ -2,6 +2,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 import psutil
+import subprocess
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,26 @@ class NetworkRates:
     total_rx_bps: float
     total_tx_bps: float
     ifaces: list[IfaceRate]
+
+def default_route_interface() -> str | None:
+    """
+    determine the interface used for the default route
+    """
+    try:
+        proc = subprocess.run(
+            ["route", "-n", "get", "default"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:
+        return None
+
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if line.startswith("interface:"):
+            return line.split(":", 1)[1].strip()
+    return None
 
 
 def collect_network_rates(sample_seconds: float = 1.0) -> NetworkRates:
@@ -64,12 +85,12 @@ def collect_network_rates(sample_seconds: float = 1.0) -> NetworkRates:
                 tx_bytes=int(s2.bytes_sent),
             )
         )
-        # Totals: include only interfaces that are up (reduces noise)
+        # totals: include only interfaces that are up
         if is_up:
             total_rx += rx_bps
             total_tx += tx_bps
 
-    # Sort with "up" first, then highest traffic
+    # sort with "up" first, then highest traffic
     ifaces.sort(key=lambda x: (not x.is_up, -(x.rx_bps + x.tx_bps), x.name))
 
     return NetworkRates(
@@ -79,10 +100,36 @@ def collect_network_rates(sample_seconds: float = 1.0) -> NetworkRates:
         ifaces=ifaces,
     )
 
+def likely_uplink(ifaces: list[IfaceRate]) -> IfaceRate | None:
+    """
+    prefer the default-route interface if present; otherwise fall back to
+    the busiest non-noise interface during the sample window.
+    """
+    dr = default_route_interface()
+    if dr is not None:
+        for i in ifaces:
+            if i.name == dr:
+                return i
+
+    # fallback: traffic heuristic
+    exclude_names = {"lo0"}
+    exclude_prefixes = ("awdl", "bridge", "llw", "ap")
+
+    candidates = [
+        i for i in ifaces
+        if i.is_up
+        and i.name not in exclude_names
+        and not i.name.startswith(exclude_prefixes)
+    ]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda i: i.rx_bps + i.tx_bps)
+
+
 
 def fmt_rate(bps: float) -> str:
-    # Bytes/sec -> human readable
-    units = ["B/s", "KiB/s", "MiB/s", "GiB/s"]
+    # bytes/sec -> human readable
+    units = ["B/s", "KB/s", "MB/s", "GB/s"]
     x = float(bps)
     i = 0
     while x >= 1024.0 and i < len(units) - 1:
