@@ -10,7 +10,7 @@ class CpuCapacity:
 
 def smt_status(cap: CpuCapacity) -> str:
     """
-    Returns 'on', 'off', or 'unknown' based on logical vs physical.
+    returns 'on', 'off', or 'unknown' based on logical vs physical.
     """
     if cap.physical is None or cap.physical <= 0 or cap.logical <= 0:
         return "unknown"
@@ -18,14 +18,14 @@ def smt_status(cap: CpuCapacity) -> str:
         return "on"
     if cap.logical == cap.physical:
         return "off"
-    # Rare/odd cases
+    
     return "unknown"
 
 
 def normalize_load(load_1m: float | None, logical_cpus: int) -> float | None:
     """
-    Convert loadavg (runnable tasks) into a rough utilization fraction.
-    Example: load_1m=3 on a 6-logical CPU machine => 0.50 (50%).
+    convert loadavg (runnable tasks) into a rough utilization fraction.
+    example: load_1m=3 on a 6-logical CPU machine => 0.50 (50%).
     """
     if load_1m is None:
         return None
@@ -36,10 +36,9 @@ def normalize_load(load_1m: float | None, logical_cpus: int) -> float | None:
 
 def cpu_health_label(cpu_percent: float, load_frac_1m: float | None) -> str:
     """
-    Very simple label. Uses both CPU percent and normalized load.
+    very simple label. uses both CPU percent and normalized load.
     - load_frac ~ 1.0 means the machine is saturated (queueing likely).
     """
-    # If we have load info, prefer it because it's a better saturation signal.
     if load_frac_1m is not None:
         if load_frac_1m < 0.60:
             return "OK"
@@ -49,7 +48,6 @@ def cpu_health_label(cpu_percent: float, load_frac_1m: float | None) -> str:
             return "SATURATED"
         return "OVERLOADED"
 
-    # Fallback to cpu percent if load isn't available
     if cpu_percent < 60.0:
         return "OK"
     if cpu_percent < 85.0:
