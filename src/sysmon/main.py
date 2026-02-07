@@ -1,11 +1,11 @@
 from __future__ import annotations
-
 import argparse
 import os
 import sys
 import time
 from dataclasses import dataclass
-
+from sysmon.macos_mem import collect_macos_memory
+from sysmon.macos_disk import collect_apfs_space
 from sysmon.analysis import CpuCapacity, cpu_health_label, normalize_load, smt_status
 from sysmon.collectors import (
     collect_cpu,
@@ -29,13 +29,16 @@ class Snapshot:
     cpu_health: str
     net: object
     uplink: object | None
-
+    mac_mem: object
+    apfs: object
 
 def build_snapshot(live_interval: float) -> Snapshot:
     host = collect_host_os()
     cpu = collect_cpu(sample_seconds=0.5)
     mem = collect_memory()
     disk = collect_disk("/")
+    mac_mem = collect_macos_memory()
+    apfs = collect_apfs_space("/")
 
     cap = CpuCapacity(logical=host.cpu_count_logical, physical=host.cpu_count_physical)
     smt = smt_status(cap)
@@ -58,6 +61,8 @@ def build_snapshot(live_interval: float) -> Snapshot:
         cpu_health=health,
         net=net,
         uplink=uplink,
+        mac_mem=mac_mem,
+        apfs=apfs,
     )
 
 
@@ -87,16 +92,50 @@ def render_snapshot(s: Snapshot) -> None:
     else:
         print(f"CPU:  {cpu.percent:.1f}%  health={s.cpu_health}")
 
-    print(
-        f"Mem:  {mem.percent:.1f}%  used={fmt_bytes(mem.used_bytes)}  "
-        f"avail={fmt_bytes(mem.available_bytes)}  total={fmt_bytes(mem.total_bytes)}"
-    )
-    print(
-        f"Disk: {disk.percent:.1f}%  used={fmt_bytes(disk.used_bytes)}  "
-        f"free={fmt_bytes(disk.free_bytes)}  total={fmt_bytes(disk.total_bytes)}  ({disk.path})"
-    )
-    print()
+    mac_mem = s.mac_mem
+    vs = mac_mem.vm_stat
 
+    mem_line = (
+        f"Mem:  {mac_mem.percent:.1f}%  "
+        f"used={fmt_bytes(mac_mem.used_bytes)}  "
+        f"avail(psutil)={fmt_bytes(mac_mem.available_bytes)}"
+    )
+    if mac_mem.available_est_bytes is not None:
+        mem_line += f"  avail(est)={fmt_bytes(mac_mem.available_est_bytes)}"
+    print(mem_line)
+
+    print(
+        f"Swap: {mac_mem.swap_percent:.1f}%  "
+        f"used={fmt_bytes(mac_mem.swap_used_bytes)}  "
+        f"free={fmt_bytes(mac_mem.swap_free_bytes)}  "
+        f"total={fmt_bytes(mac_mem.swap_total_bytes)}"
+    )
+
+    if vs is not None:
+        # pageouts are a good pressure indicator
+        po = vs.pageouts if vs.pageouts is not None else 0
+        print(f"vm_stat: page_size={vs.page_size_bytes}B  pageouts={po}")
+
+    apfs = s.apfs
+
+    disk_line = (
+        f"Disk: {s.disk.percent:.1f}%  "
+        f"used={fmt_bytes(s.disk.used_bytes)}  "
+        f"free(immediate)={fmt_bytes(s.disk.free_bytes)}  "
+        f"total={fmt_bytes(s.disk.total_bytes)}  ({s.disk.path})"
+    )
+    print(disk_line)
+
+    if apfs.effective_free_bytes is not None and apfs.purgeable_bytes is not None:
+        print(
+            f"APFS: free(immediate)={fmt_bytes(apfs.free_bytes or 0)}  "
+            f"purgeable={fmt_bytes(apfs.purgeable_bytes)}  "
+            f"free(effective)={fmt_bytes(apfs.effective_free_bytes)}"
+        )
+    elif apfs.notes:
+        print(f"APFS: {apfs.notes}")
+
+    print()
     if uplink is not None:
         print(
             f"Net:  rx={fmt_rate(net.total_rx_bps)}  tx={fmt_rate(net.total_tx_bps)}  "
@@ -123,7 +162,7 @@ def main() -> None:
         while True:
             t0 = time.time()
 
-            # collect while the previous snapshot remains visible (prevents flashing).
+            # collect while the previous snapshot remains visible (prevents flashing)
             snap = build_snapshot(interval)
 
             if interval > 0 and not args.no_clear:
