@@ -126,14 +126,17 @@ def render_snapshot(s: Snapshot) -> None:
     )
     print(disk_line)
 
-    if apfs.effective_free_bytes is not None and apfs.purgeable_bytes is not None:
+    apfs = s.apfs
+
+    if apfs.total_bytes is not None and apfs.free_bytes is not None:
         print(
-            f"APFS: free(immediate)={fmt_bytes(apfs.free_bytes or 0)}  "
-            f"purgeable={fmt_bytes(apfs.purgeable_bytes)}  "
-            f"free(effective)={fmt_bytes(apfs.effective_free_bytes)}"
+            f"APFS: container={apfs.container}  "
+            f"free={fmt_bytes(apfs.free_bytes)}  "
+            f"total={fmt_bytes(apfs.total_bytes)}"
         )
     elif apfs.notes:
         print(f"APFS: {apfs.notes}")
+
 
     print()
     if uplink is not None:
