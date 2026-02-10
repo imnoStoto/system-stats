@@ -12,11 +12,6 @@ It surfaces current system state (OS, CPU, memory, disk, uptime, and network act
 - Capture consistent snapshots during incidents
 - Support documentation and escalation with reproducible evidence
 
-## Scope and Safety
-- Read-only: No system settings are modified
-- Local execution only: No remote calls or data exfiltration
-- Operational focus: Designed to be run during support or diagnostic workflows
-
 ## Data Collected
 Depending on platform support, output may include:
 - Operating system and kernel version
@@ -31,7 +26,6 @@ All data is collected via standard OS interfaces.
 ## Typical Use Cases
 - Verifying system health
 - Capturing a “point-in-time” snapshot for documentation
-- Supporting first-level troubleshooting
 - Validating that system resources align with expected baselines
 
 ## Example Workflow
