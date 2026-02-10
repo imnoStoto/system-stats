@@ -4,7 +4,7 @@ Read-only system monitoring utility designed for operational diagnostics, docume
 This tool provides structured, human-readable output to support incident response, validation checks, and escalation workflows.
 
 ## Purpose
-`system-stats` is intended for **situational awareness**, not system modification.  
+`system-stats` is intended for situational awareness, not system modification.  
 It surfaces current system state (OS, CPU, memory, disk, uptime, and network activity) to help operators:
 
 - Confirm baseline system health
@@ -13,9 +13,9 @@ It surfaces current system state (OS, CPU, memory, disk, uptime, and network act
 - Support documentation and escalation with reproducible evidence
 
 ## Scope and Safety
-- **Read-only:** No system settings are modified
-- **Local execution only:** No remote calls or data exfiltration
-- **Operational focus:** Designed to be run during support or diagnostic workflows
+- Read-only: No system settings are modified
+- Local execution only: No remote calls or data exfiltration
+- Operational focus: Designed to be run during support or diagnostic workflows
 
 ## Data Collected
 Depending on platform support, output may include:
@@ -49,13 +49,4 @@ All data is collected via standard OS interfaces.
   - Modify system configuration
   - Diagnose root cause automatically
   - Replace deeper platform-specific tooling
-- Intended as a **first-step diagnostic aid**, not a complete monitoring solution
-
-## Intended Audience
-- IT support and operations staff
-- Systems administrators performing first-level checks
-- Anyone responsible for documenting system state accurately
-
-## Notes
-This repository is provided for educational and operational demonstration purposes.  
-No proprietary systems, credentials, or sensitive data are included.
+- Intended as a first-step diagnostic aid, not a complete monitoring solution
